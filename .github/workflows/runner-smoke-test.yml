@@ -30,7 +30,7 @@ jobs:
 
       - name: Authenticate with Zot
         env:
-          ZOT_REGISTRY: ${{ vars.ZOT_REGISTRY }}
+          ZOT_REGISTRY: registry.local:5000
           ZOT_USERNAME: ${{ secrets.ZOT_USERNAME }}
           ZOT_PASSWORD: ${{ secrets.ZOT_PASSWORD }}
         run: |
