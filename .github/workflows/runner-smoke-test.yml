@@ -1,0 +1,42 @@
+name: Runner smoke test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify-runner:
+    name: Verify storage-01 runner
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - storage-01
+      - podman
+      - zot
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Show runner identity
+        run: |
+          id
+          hostname
+          date
+
+      - name: Verify rootless Podman
+        run: |
+          podman info \
+            --format 'rootless={{.Host.Security.Rootless}} runtime={{.Host.OCIRuntime.Name}} graphRoot={{.Store.GraphRoot}}'
+
+      - name: Authenticate with Zot
+        env:
+          ZOT_REGISTRY: ${{ vars.ZOT_REGISTRY }}
+          ZOT_USERNAME: ${{ secrets.ZOT_USERNAME }}
+          ZOT_PASSWORD: ${{ secrets.ZOT_PASSWORD }}
+        run: |
+          printf '%s' "$ZOT_PASSWORD" |
+            podman login "$ZOT_REGISTRY" \
+              --username "$ZOT_USERNAME" \
+              --password-stdin
+
+          podman logout "$ZOT_REGISTRY"
