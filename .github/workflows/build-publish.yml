@@ -69,7 +69,7 @@ jobs:
           ZOT_PASSWORD: ${{ secrets.ZOT_PASSWORD }}
         run: |
           printf '%s' "$ZOT_PASSWORD" |
-        podman login "registry.local:5000" \
+            podman login "$REGISTRY"  \
               --username "$ZOT_USERNAME" \
               --password-stdin
 
