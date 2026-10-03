@@ -1,0 +1,64 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django local data
+db.sqlite3
+*.sqlite3
+media/
+staticfiles/
+
+# Environment and secret files
+.env
+.env.*
+!.env.example
+secrets/
+*.key
+*.pem
+*.crt
+*.csr
+*.srl
+*.p12
+*.pfx
+
+# Database backups
+backups/
+*.sql
+*.dump
+
+# Container image archives
+*.tar
+*.tar.gz
+*.tgz
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+test-results/
+
+# Logs and runtime files
+*.log
+*.pid
+*.sock
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary and swap files
+*.swp
+*.swo
+*~
+
+# Accidental local scratch file
+/1

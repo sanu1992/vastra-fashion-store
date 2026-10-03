@@ -1,0 +1,149 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        {% block title %}Vastra Fashion Store{% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'catalog/store.css' %}"
+    >
+</head>
+
+<body>
+    <header class="site-header">
+        <a
+            class="brand"
+            href="{% url 'catalog:storefront' %}"
+        >
+            <span class="brand-mark">V</span>
+
+            <span>
+                <strong>VASTRA</strong>
+                <small>Modern Indian Fashion</small>
+            </span>
+        </a>
+
+        <form
+            class="header-search"
+            method="get"
+            action="{% url 'catalog:storefront' %}"
+        >
+            <input
+                type="search"
+                name="q"
+                value="{{ search_query|default:'' }}"
+                placeholder="Search shirts, dresses, jewellery..."
+                aria-label="Search products"
+            >
+
+            <button type="submit">Search</button>
+        </form>
+
+        <nav class="header-actions">
+            <a
+                class="desktop-action"
+                href="{% url 'catalog:storefront' %}"
+            >
+                Shop
+            </a>
+
+            {% if request.user.is_authenticated %}
+                <a
+                    class="auth-link"
+                    href="{% url 'accounts:profile' %}"
+                >
+                    My Account
+                </a>
+
+                {% if request.user.is_staff %}
+                    <a
+                        class="desktop-action"
+                        href="/admin/"
+                    >
+                        Admin
+                    </a>
+                {% endif %}
+
+                <form
+                    class="header-logout"
+                    method="post"
+                    action="{% url 'accounts:logout' %}"
+                >
+                    {% csrf_token %}
+
+                    <button type="submit">
+                        Sign out
+                    </button>
+                </form>
+            {% else %}
+                <a
+                    class="auth-link"
+                    href="{% url 'accounts:login' %}"
+                >
+                    Sign in
+                </a>
+
+                <a
+                    class="auth-link join-link"
+                    href="{% url 'accounts:register' %}"
+                >
+                    Join
+                </a>
+            {% endif %}
+
+            <button type="button" class="bag-button">
+                Bag <span>0</span>
+            </button>
+        </nav>
+    </header>
+
+    {% if messages %}
+        <section
+            class="message-stack"
+            aria-live="polite"
+        >
+            {% for message in messages %}
+                <div class="site-message {{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </section>
+    {% endif %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div>
+            <strong>VASTRA</strong>
+
+            <p>
+                A cloud-native fashion commerce experience.
+            </p>
+        </div>
+
+        <div>
+            <span>Secure checkout</span>
+            <span>Easy returns</span>
+            <span>Quality catalogue</span>
+        </div>
+
+        <p>
+            © 2026 Vastra Fashion Store
+        </p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

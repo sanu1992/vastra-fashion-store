@@ -1,0 +1,474 @@
+{% extends "catalog/base.html" %}
+
+{% block title %}
+{{ product.name }} — Vastra
+{% endblock %}
+
+{% block content %}
+<section class="product-detail">
+    <nav class="breadcrumbs">
+        <a href="{% url 'catalog:storefront' %}">
+            Home
+        </a>
+
+        <span>/</span>
+
+        {% if product.category.parent %}
+            <a href="{% url 'catalog:storefront' %}?category={{ product.category.parent.slug }}">
+                {{ product.category.parent.name }}
+            </a>
+
+            <span>/</span>
+        {% endif %}
+
+        <span>{{ product.category.name }}</span>
+    </nav>
+
+    <div class="product-detail-layout">
+        <div class="product-gallery">
+            <div class="main-image-container">
+                {% if product.storefront_image_url %}
+                    <img
+                        id="main-product-image"
+                        src="{{ product.storefront_image_url }}"
+                        alt="{{ product.alt_text }}"
+                    >
+
+                    {% if product.storefront_images|length > 1 %}
+                        <button
+                            id="previous-image"
+                            class="gallery-arrow gallery-previous"
+                            type="button"
+                            aria-label="Previous image"
+                        >
+                            ‹
+                        </button>
+
+                        <button
+                            id="next-image"
+                            class="gallery-arrow gallery-next"
+                            type="button"
+                            aria-label="Next image"
+                        >
+                            ›
+                        </button>
+                    {% endif %}
+                {% else %}
+                    <div class="product-detail-placeholder">
+                        Image coming soon
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if product.storefront_images %}
+                <div
+                    class="thumbnail-list"
+                    id="thumbnail-list"
+                >
+                    {% for image in product.storefront_images %}
+                        <button
+                            class="thumbnail
+                            {% if forloop.first %}active{% endif %}"
+                            type="button"
+                            data-image="{{ image }}"
+                        >
+                            <img
+                                src="{{ image }}"
+                                alt="{{ product.alt_text }}"
+                                loading="lazy"
+                            >
+                        </button>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="product-information">
+            <p class="product-category">
+                {% if product.category.parent %}
+                    {{ product.category.parent.name }}
+                    ·
+                {% endif %}
+
+                {{ product.category.name }}
+            </p>
+
+            <h1>{{ product.name }}</h1>
+
+            <div class="product-rating">
+                <span>★★★★★</span>
+                <small>Catalogue selection</small>
+            </div>
+
+            <p
+                class="detail-price"
+                id="selected-price"
+            >
+                ₹{% if selected_variant %}{{ selected_variant.price|floatformat:0 }}{% else %}{{ product.storefront_price|floatformat:0 }}{% endif %}
+            </p>
+
+            <p class="tax-message">
+                Inclusive of all taxes
+            </p>
+
+            <p class="product-description">
+                {{ product.description }}
+            </p>
+
+            {% if product.tags %}
+                <div class="tag-list">
+                    {% for tag in product.tags %}
+                        <span>{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if product.storefront_variants %}
+                <div class="variant-section">
+                    <div class="variant-heading">
+                        <strong>Select an option</strong>
+                        <span>
+                            Size, colour and live availability
+                        </span>
+                    </div>
+
+                    <div class="variant-grid">
+                        {% for variant in product.storefront_variants %}
+                            <label
+                                class="variant-option
+                                {% if variant.available_stock == 0 %}sold-out{% endif %}"
+                            >
+                                <input
+                                    type="radio"
+                                    name="variant"
+                                    value="{{ variant.id }}"
+                                    data-price="{{ variant.price }}"
+                                    data-stock="{{ variant.available_stock }}"
+                                    data-sku="{{ variant.sku }}"
+                                    {% if selected_variant.id == variant.id %}checked{% endif %}
+                                >
+
+                                <span>
+                                    {% if variant.color %}
+                                        {{ variant.color }}
+                                    {% endif %}
+
+                                    {% if variant.color and variant.size %}
+                                        ·
+                                    {% endif %}
+
+                                    {% if variant.size %}
+                                        {{ variant.size }}
+                                    {% endif %}
+
+                                    {% if not variant.color and not variant.size %}
+                                        Standard option
+                                    {% endif %}
+                                </span>
+
+                                <small>
+                                    {% if variant.available_stock > 0 %}
+                                        {{ variant.available_stock }}
+                                        available
+                                    {% else %}
+                                        Sold out
+                                    {% endif %}
+                                </small>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="product-status">
+                <div>
+                    <span>Availability</span>
+
+                    <strong
+                        id="selected-availability"
+                        class="{% if selected_variant and selected_variant.available_stock > 0 %}in-stock{% else %}out-of-stock{% endif %}"
+                    >
+                        {% if selected_variant and selected_variant.available_stock > 0 %}
+                            {{ selected_variant.available_stock }}
+                            available
+                        {% else %}
+                            Sold out
+                        {% endif %}
+                    </strong>
+                </div>
+
+                <div>
+                    <span>Product code</span>
+
+                    <strong id="selected-sku">
+                        {% if selected_variant %}
+                            {{ selected_variant.sku }}
+                        {% else %}
+                            {{ product.sku }}
+                        {% endif %}
+                    </strong>
+                </div>
+
+                <div>
+                    <span>For</span>
+
+                    <strong>
+                        {{ product.get_audience_display }}
+                    </strong>
+                </div>
+            </div>
+
+            <button
+                class="add-to-bag"
+                id="add-to-bag"
+                type="button"
+                {% if not selected_variant or selected_variant.available_stock == 0 %}disabled{% endif %}
+            >
+                Add to Bag
+            </button>
+
+            <p class="cart-note">
+                Cart functionality will be connected next.
+            </p>
+
+            <div class="service-promises">
+                <div>
+                    <strong>Secure</strong>
+                    <span>Protected shopping experience</span>
+                </div>
+
+                <div>
+                    <strong>Reliable</strong>
+                    <span>Live warehouse stock</span>
+                </div>
+
+                <div>
+                    <strong>Curated</strong>
+                    <span>AI-assisted catalogue</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if related_products %}
+<section class="related-section">
+    <div class="section-heading">
+        <div>
+            <span class="eyebrow">
+                YOU MAY ALSO LIKE
+            </span>
+
+            <h2>Similar styles</h2>
+        </div>
+    </div>
+
+    <div class="product-grid related-grid">
+        {% for related in related_products %}
+            <article class="product-card">
+                <a
+                    class="product-image"
+                    href="{% url 'catalog:product_detail' related.slug %}"
+                >
+                    {% if related.storefront_image_url %}
+                        <img
+                            src="{{ related.storefront_image_url }}"
+                            alt="{{ related.alt_text }}"
+                            loading="lazy"
+                        >
+                    {% else %}
+                        <div class="product-image-placeholder">
+                            Image coming soon
+                        </div>
+                    {% endif %}
+                </a>
+
+                <div class="product-card-content">
+                    <p class="product-category">
+                        {{ related.category.name }}
+                    </p>
+
+                    <h3>
+                        <a href="{% url 'catalog:product_detail' related.slug %}">
+                            {{ related.name }}
+                        </a>
+                    </h3>
+
+                    <strong>
+                        From ₹{{ related.storefront_price|floatformat:0 }}
+                    </strong>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+    const mainImage =
+        document.querySelector("#main-product-image");
+
+    const thumbnails = Array.from(
+        document.querySelectorAll(".thumbnail")
+    );
+
+    const previousButton =
+        document.querySelector("#previous-image");
+
+    const nextButton =
+        document.querySelector("#next-image");
+
+    if (mainImage && thumbnails.length) {
+        const imageUrls = [
+            ...new Set(
+                thumbnails.map(
+                    thumbnail => thumbnail.dataset.image
+                )
+            )
+        ];
+
+        let currentIndex = 0;
+        let automaticChange;
+
+        function showImage(index) {
+            currentIndex =
+                (index + imageUrls.length)
+                % imageUrls.length;
+
+            const selectedUrl =
+                imageUrls[currentIndex];
+
+            mainImage.classList.add("changing");
+
+            window.setTimeout(() => {
+                mainImage.src = selectedUrl;
+                mainImage.classList.remove("changing");
+            }, 120);
+
+            thumbnails.forEach(thumbnail => {
+                thumbnail.classList.toggle(
+                    "active",
+                    thumbnail.dataset.image
+                        === selectedUrl
+                );
+            });
+        }
+
+        function startAutomaticChange() {
+            window.clearInterval(automaticChange);
+
+            if (imageUrls.length > 1) {
+                automaticChange = window.setInterval(
+                    () => showImage(currentIndex + 1),
+                    4500
+                );
+            }
+        }
+
+        thumbnails.forEach(thumbnail => {
+            thumbnail.addEventListener(
+                "click",
+                () => {
+                    showImage(
+                        imageUrls.indexOf(
+                            thumbnail.dataset.image
+                        )
+                    );
+
+                    startAutomaticChange();
+                }
+            );
+        });
+
+        if (previousButton) {
+            previousButton.addEventListener(
+                "click",
+                () => {
+                    showImage(currentIndex - 1);
+                    startAutomaticChange();
+                }
+            );
+        }
+
+        if (nextButton) {
+            nextButton.addEventListener(
+                "click",
+                () => {
+                    showImage(currentIndex + 1);
+                    startAutomaticChange();
+                }
+            );
+        }
+
+        startAutomaticChange();
+    }
+
+    const variantInputs = Array.from(
+        document.querySelectorAll(
+            'input[name="variant"]'
+        )
+    );
+
+    const priceElement =
+        document.querySelector("#selected-price");
+
+    const availabilityElement =
+        document.querySelector(
+            "#selected-availability"
+        );
+
+    const skuElement =
+        document.querySelector("#selected-sku");
+
+    const addToBagButton =
+        document.querySelector("#add-to-bag");
+
+    const currencyFormatter =
+        new Intl.NumberFormat(
+            "en-IN",
+            {
+                maximumFractionDigits: 0,
+            }
+        );
+
+    function updateSelectedVariant(input) {
+        const price = Number(input.dataset.price);
+        const stock = Number(input.dataset.stock);
+        const sku = input.dataset.sku;
+
+        priceElement.textContent =
+            `₹${currencyFormatter.format(price)}`;
+
+        skuElement.textContent = sku;
+
+        if (stock > 0) {
+            availabilityElement.textContent =
+                `${stock} available`;
+
+            availabilityElement.className =
+                "in-stock";
+
+            addToBagButton.disabled = false;
+        } else {
+            availabilityElement.textContent =
+                "Sold out";
+
+            availabilityElement.className =
+                "out-of-stock";
+
+            addToBagButton.disabled = true;
+        }
+    }
+
+    variantInputs.forEach(input => {
+        input.addEventListener(
+            "change",
+            () => updateSelectedVariant(input)
+        );
+    });
+})();
+</script>
+{% endblock %}

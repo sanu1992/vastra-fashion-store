@@ -1,0 +1,268 @@
+{% extends "catalog/base.html" %}
+
+{% block title %}
+Vastra — Fashion for Every Story
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <span class="eyebrow">
+            NEW SEASON · 2026
+        </span>
+
+        <h1>
+            Style that feels
+            <em>uniquely yours.</em>
+        </h1>
+
+        <p>
+            Discover carefully selected clothing,
+            jewellery and footwear created for
+            everyday confidence.
+        </p>
+
+        <div class="hero-buttons">
+            <a class="primary-button" href="#products">
+                Explore Collection
+            </a>
+
+            <a class="secondary-button" href="#categories">
+                Browse Categories
+            </a>
+        </div>
+
+        <div class="hero-benefits">
+            <span>✓ Curated styles</span>
+            <span>✓ Secure shopping</span>
+            <span>✓ Live warehouse inventory</span>
+        </div>
+    </div>
+
+    <div class="hero-visual">
+        {% with featured=products|first %}
+            {% if featured and featured.storefront_image_url %}
+                <img
+                    src="{{ featured.storefront_image_url }}"
+                    alt="{{ featured.alt_text }}"
+                >
+
+                <div class="hero-product-label">
+                    <span>Featured</span>
+                    <strong>{{ featured.name }}</strong>
+                    <small>
+                        From ₹{{ featured.storefront_price|floatformat:0 }}
+                    </small>
+                </div>
+            {% else %}
+                <div class="hero-placeholder">
+                    Collection coming soon
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+</section>
+
+<section
+    class="category-section"
+    id="categories"
+>
+    <div class="section-heading">
+        <div>
+            <span class="eyebrow">SHOP BY CATEGORY</span>
+            <h2>Find your style</h2>
+        </div>
+
+        <a href="{% url 'catalog:storefront' %}">
+            View everything
+        </a>
+    </div>
+
+    <div class="category-list">
+        <a
+            class="category-chip
+            {% if not selected_category %}active{% endif %}"
+            href="{% url 'catalog:storefront' %}"
+        >
+            All Products
+        </a>
+
+        {% for category in categories %}
+            <a
+                class="category-chip
+                {% if selected_category.id == category.id %}active{% endif %}"
+                href="?category={{ category.slug }}"
+            >
+                {{ category.name }}
+            </a>
+        {% endfor %}
+    </div>
+</section>
+
+<section
+    class="products-section"
+    id="products"
+>
+    <div class="section-heading">
+        <div>
+            <span class="eyebrow">
+                OUR COLLECTION
+            </span>
+
+            <h2>
+                {% if selected_category %}
+                    {{ selected_category.name }}
+                {% elif search_query %}
+                    Results for “{{ search_query }}”
+                {% else %}
+                    Latest arrivals
+                {% endif %}
+            </h2>
+        </div>
+
+        <span class="product-count">
+            Showing {{ page_obj.start_index }}–{{ page_obj.end_index }}
+            of {{ page_obj.paginator.count }} products
+        </span>
+    </div>
+
+    {% if products %}
+        <div class="product-grid">
+            {% for product in products %}
+                <article class="product-card">
+                    <a
+                        class="product-image"
+                        href="{% url 'catalog:product_detail' product.slug %}"
+                    >
+                        {% if product.storefront_image_url %}
+                            <img
+                                src="{{ product.storefront_image_url }}"
+                                alt="{{ product.alt_text }}"
+                                loading="lazy"
+                            >
+                        {% else %}
+                            <div class="product-image-placeholder">
+                                Image coming soon
+                            </div>
+                        {% endif %}
+
+                        <span class="audience-badge">
+                            {{ product.get_audience_display }}
+                        </span>
+
+                        <span class="quick-view">
+                            View Product
+                        </span>
+                    </a>
+
+                    <div class="product-card-content">
+                        <p class="product-category">
+                            {% if product.category.parent %}
+                                {{ product.category.parent.name }}
+                                ·
+                            {% endif %}
+
+                            {{ product.category.name }}
+                        </p>
+
+                        <h3>
+                            <a href="{% url 'catalog:product_detail' product.slug %}">
+                                {{ product.name }}
+                            </a>
+                        </h3>
+
+                        <div class="product-card-footer">
+                            <strong>
+                                From ₹{{ product.storefront_price|floatformat:0 }}
+                            </strong>
+
+                            {% if product.storefront_stock > 0 %}
+                                <span class="in-stock">
+                                    {{ product.storefront_stock }}
+                                    available
+                                </span>
+                            {% else %}
+                                <span class="out-of-stock">
+                                    Sold out
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+            <nav
+                class="pagination"
+                aria-label="Product pages"
+            >
+                {% if page_obj.has_previous %}
+                    <a
+                        href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page=1#products"
+                    >
+                        First
+                    </a>
+
+                    <a
+                        href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.previous_page_number }}#products"
+                    >
+                        Previous
+                    </a>
+                {% endif %}
+
+                {% for page_number in page_range %}
+                    {% if page_number == pagination_ellipsis %}
+                        <span class="pagination-ellipsis">
+                            {{ page_number }}
+                        </span>
+                    {% elif page_number == page_obj.number %}
+                        <span
+                            class="pagination-current"
+                            aria-current="page"
+                        >
+                            {{ page_number }}
+                        </span>
+                    {% else %}
+                        <a
+                            href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_number }}#products"
+                        >
+                            {{ page_number }}
+                        </a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <a
+                        href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}#products"
+                    >
+                        Next
+                    </a>
+
+                    <a
+                        href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.paginator.num_pages }}#products"
+                    >
+                        Last
+                    </a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <div>⌕</div>
+            <h3>No products found</h3>
+
+            <p>
+                Try another search term or category.
+            </p>
+
+            <a
+                class="primary-button"
+                href="{% url 'catalog:storefront' %}"
+            >
+                See all products
+            </a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}
