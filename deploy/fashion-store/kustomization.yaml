@@ -7,6 +7,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
+  - redis.yaml
 
 images:
   - name: registry.local:5000/vastra/fashion-store
