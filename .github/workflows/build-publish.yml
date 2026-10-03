@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: vastra-image-main
@@ -34,16 +34,21 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v7
         with:
-          persist-credentials: false
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Create image tags
         id: image
         shell: bash
         run: |
-          SHORT_SHA="${GITHUB_SHA:0:12}"
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          SHORT_SHA="${SOURCE_SHA:0:12}"
+          SHA_TAG="sha-${SHORT_SHA}"
 
-          echo "sha_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "sha_image=${REGISTRY}/${IMAGE_REPOSITORY}:sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          echo "sha_image=${REGISTRY}/${IMAGE_REPOSITORY}:${SHA_TAG}" >> "$GITHUB_OUTPUT"
           echo "latest_image=${REGISTRY}/${IMAGE_REPOSITORY}:latest" >> "$GITHUB_OUTPUT"
 
       - name: Scan source for secrets
@@ -64,7 +69,7 @@ jobs:
           ZOT_PASSWORD: ${{ secrets.ZOT_PASSWORD }}
         run: |
           printf '%s' "$ZOT_PASSWORD" |
-            podman login "$REGISTRY" \
+        podman login "registry.local:5000" \
               --username "$ZOT_USERNAME" \
               --password-stdin
 
@@ -116,17 +121,40 @@ jobs:
         run: |
           podman push "$LATEST_IMAGE"
 
+      - name: Update GitOps image tag
+        if: github.ref == 'refs/heads/main'
+        env:
+          SHA_TAG: ${{ steps.image.outputs.sha_tag }}
+        run: |
+          sed -i -E \
+            "s|^[[:space:]]*newTag:.*|    newTag: ${SHA_TAG}|" \
+            deploy/fashion-store/kustomization.yaml
+
+          if git diff --quiet -- deploy/fashion-store/kustomization.yaml; then
+            echo "GitOps manifest already references ${SHA_TAG}"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add deploy/fashion-store/kustomization.yaml
+          git commit -m "Deploy ${SHA_TAG} [skip ci]"
+          git push origin HEAD:main
+
       - name: Write workflow summary
         env:
+          SOURCE_SHA: ${{ steps.image.outputs.source_sha }}
           SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
           LATEST_IMAGE: ${{ steps.image.outputs.latest_image }}
         run: |
           {
             echo "## VASTRA image published"
             echo
+            echo "- Source commit: \`$SOURCE_SHA\`"
             echo "- Immutable image: \`$SHA_IMAGE\`"
             echo "- Moving image: \`$LATEST_IMAGE\`"
-            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- GitOps manifest updated automatically"
             echo "- Runner: \`$RUNNER_NAME\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
