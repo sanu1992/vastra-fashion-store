@@ -1,0 +1,136 @@
+name: Build and publish image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vastra-image-main
+  cancel-in-progress: false
+
+env:
+  REGISTRY: registry.local:5000
+  IMAGE_REPOSITORY: vastra/fashion-store
+
+jobs:
+  build-and-publish:
+    name: Scan, build, validate and publish
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - storage-01
+      - podman
+      - zot
+
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Create image tags
+        id: image
+        shell: bash
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+
+          echo "sha_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "sha_image=${REGISTRY}/${IMAGE_REPOSITORY}:sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "latest_image=${REGISTRY}/${IMAGE_REPOSITORY}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Scan source for secrets
+        run: |
+          podman run --rm \
+            --security-opt label=disable \
+            -v "${GITHUB_WORKSPACE}:/repo:ro" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            detect \
+            --source=/repo \
+            --no-git \
+            --redact \
+            --verbose
+
+      - name: Authenticate with Zot
+        env:
+          ZOT_USERNAME: ${{ secrets.ZOT_USERNAME }}
+          ZOT_PASSWORD: ${{ secrets.ZOT_PASSWORD }}
+        run: |
+          printf '%s' "$ZOT_PASSWORD" |
+            podman login "$REGISTRY" \
+              --username "$ZOT_USERNAME" \
+              --password-stdin
+
+      - name: Build image
+        env:
+          SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
+          LATEST_IMAGE: ${{ steps.image.outputs.latest_image }}
+        run: |
+          podman build \
+            --pull=newer \
+            --tag "$SHA_IMAGE" \
+            --tag "$LATEST_IMAGE" \
+            .
+
+      - name: Compile Python source
+        env:
+          SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
+        run: |
+          podman run --rm \
+            --entrypoint python \
+            "$SHA_IMAGE" \
+            -m compileall \
+            -q \
+            .
+
+      - name: Run Django system checks
+        env:
+          SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
+        run: |
+          podman run --rm \
+            --entrypoint python \
+            --env POSTGRES_DB=ci_check \
+            --env POSTGRES_USER=ci_check \
+            --env POSTGRES_PASSWORD=ci_check \
+            --env POSTGRES_HOST=127.0.0.1 \
+            --env POSTGRES_PORT=5432 \
+            "$SHA_IMAGE" \
+            manage.py check
+
+      - name: Push immutable image
+        env:
+          SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
+        run: |
+          podman push "$SHA_IMAGE"
+
+      - name: Push latest image
+        env:
+          LATEST_IMAGE: ${{ steps.image.outputs.latest_image }}
+        run: |
+          podman push "$LATEST_IMAGE"
+
+      - name: Write workflow summary
+        env:
+          SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
+          LATEST_IMAGE: ${{ steps.image.outputs.latest_image }}
+        run: |
+          {
+            echo "## VASTRA image published"
+            echo
+            echo "- Immutable image: \`$SHA_IMAGE\`"
+            echo "- Moving image: \`$LATEST_IMAGE\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Runner: \`$RUNNER_NAME\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log out from Zot
+        if: always()
+        run: |
+          podman logout "$REGISTRY" || true
