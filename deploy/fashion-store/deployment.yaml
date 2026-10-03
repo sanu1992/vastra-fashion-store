@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: fashion-store
+  namespace: fashion-store
+  labels:
+    app: fashion-store
+
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app: fashion-store
+
+  template:
+    metadata:
+      labels:
+        app: fashion-store
+
+    spec:
+      imagePullSecrets:
+        - name: zot-registry-credentials
+
+      containers:
+        - name: fashion-store
+          image: registry.local:5000/vastra/fashion-store:latest
+          imagePullPolicy: IfNotPresent
+
+          env:
+            - name: UNSPLASH_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-images
+                  key: UNSPLASH_ACCESS_KEY
+
+            - name: DJANGO_CSRF_TRUSTED_ORIGINS
+              value: "https://fashion.local"
+
+            - name: DJANGO_ALLOWED_HOSTS
+              value: "localhost,127.0.0.1,192.168.1.25,192.168.1.240,fashion.local"
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-db
+                  key: POSTGRES_PASSWORD
+
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-db
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-db
+                  key: POSTGRES_DB
+
+            - name: POSTGRES_HOST
+              value: "postgres"
+
+            - name: POSTGRES_PORT
+              value: "5432"
+
+            - name: AI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-ai
+                  key: AI_API_KEY
+
+            - name: AI_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-ai
+                  key: AI_BASE_URL
+
+            - name: AI_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-ai
+                  key: AI_MODEL
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready/
+              port: 8000
+              scheme: HTTP
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+            successThreshold: 1
+
+          livenessProbe:
+            httpGet:
+              path: /health/live/
+              port: 8000
+              scheme: HTTP
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+            successThreshold: 1
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi

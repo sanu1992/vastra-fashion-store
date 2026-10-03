@@ -1,16 +1,24 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
+
 metadata:
   name: fashion-store
   namespace: fashion-store
   annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
 
 spec:
   ingressClassName: traefik
 
+  tls:
+    - hosts:
+        - fashion.local
+      secretName: fashion-store-tls
+
   rules:
-    - http:
+    - host: fashion.local
+      http:
         paths:
           - path: /
             pathType: Prefix

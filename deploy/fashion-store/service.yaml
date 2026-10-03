@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: fashion-store
+  namespace: fashion-store
+  labels:
+    app: fashion-store
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: fashion-store
+
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8000
