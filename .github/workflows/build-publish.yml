@@ -1,11 +1,9 @@
-name: Build, validate and publish
+name: Build and publish image
 
 on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "deploy/fashion-store/**"
 
   workflow_dispatch:
 
@@ -13,8 +11,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: vastra-build-publish
+  group: vastra-image-main
   cancel-in-progress: false
+
+env:
+  REGISTRY: registry.local:5000
+  IMAGE_REPOSITORY: vastra/fashion-store
 
 jobs:
   build-and-publish:
@@ -28,68 +30,71 @@ jobs:
       - podman
       - zot
 
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v7
         with:
+          ref: main
           fetch-depth: 0
+          persist-credentials: true
 
-      - name: Validate runner
+      - name: Create image tags
+        id: image
+        shell: bash
         run: |
-          podman info \
-            --format 'rootless={{.Host.Security.Rootless}} runtime={{.Host.OCIRuntime.Name}}'
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          SHORT_SHA="${SOURCE_SHA:0:12}"
+          SHA_TAG="sha-${SHORT_SHA}"
 
-      - name: Scan repository for secrets
+          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          echo "sha_image=${REGISTRY}/${IMAGE_REPOSITORY}:${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          echo "latest_image=${REGISTRY}/${IMAGE_REPOSITORY}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Scan source for secrets
         run: |
           podman run --rm \
-            --volume "$GITHUB_WORKSPACE:/repo:ro,Z" \
+            --security-opt label=disable \
+            -v "${GITHUB_WORKSPACE}:/repo:ro" \
             ghcr.io/gitleaks/gitleaks:v8.30.1 \
             detect \
             --source=/repo \
+            --no-git \
             --redact \
             --verbose
 
-      - name: Define image references
-        id: image
+      - name: Authenticate with Zot
         env:
-          ZOT_REGISTRY: ${{ vars.ZOT_REGISTRY }}
-        run: |
-          if [ -z "$ZOT_REGISTRY" ]; then
-            echo "Repository variable ZOT_REGISTRY is not configured."
-            exit 1
-          fi
-
-          IMAGE_TAG="${GITHUB_SHA:0:12}"
-          SHA_IMAGE="${ZOT_REGISTRY}/vastra/fashion-store:${IMAGE_TAG}"
-          LATEST_IMAGE="${ZOT_REGISTRY}/vastra/fashion-store:latest"
-
-          echo "sha_image=$SHA_IMAGE" >> "$GITHUB_OUTPUT"
-          echo "latest_image=$LATEST_IMAGE" >> "$GITHUB_OUTPUT"
-          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Login to Zot registry
-        env:
-          ZOT_REGISTRY: ${{ vars.ZOT_REGISTRY }}
           ZOT_USERNAME: ${{ secrets.ZOT_USERNAME }}
           ZOT_PASSWORD: ${{ secrets.ZOT_PASSWORD }}
         run: |
           printf '%s' "$ZOT_PASSWORD" |
-            podman login "$ZOT_REGISTRY" \
+            podman login "$REGISTRY" \
               --username "$ZOT_USERNAME" \
               --password-stdin
 
-      - name: Build application image
+      - name: Build image
         env:
           SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
           LATEST_IMAGE: ${{ steps.image.outputs.latest_image }}
         run: |
           podman build \
-            --pull=missing \
+            --pull=newer \
             --tag "$SHA_IMAGE" \
             --tag "$LATEST_IMAGE" \
-            --file Containerfile \
+            .
+
+      - name: Compile Python source
+        env:
+          SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
+        run: |
+          podman run --rm \
+            --entrypoint python \
+            "$SHA_IMAGE" \
+            -m compileall \
+            -q \
             .
 
       - name: Validate Django application
@@ -128,30 +133,17 @@ jobs:
         run: |
           podman push "$LATEST_IMAGE"
 
-      - name: Update GitOps image reference
+      - name: Update GitOps image tag
+        if: github.ref == 'refs/heads/main'
         env:
-          SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
-          IMAGE_TAG: ${{ steps.image.outputs.image_tag }}
+          SHA_TAG: ${{ steps.image.outputs.sha_tag }}
         run: |
-          mapfile -t IMAGE_FILES < <(
-            grep -rlE \
-              'image:[[:space:]]+[^[:space:]]*/vastra/fashion-store:' \
-              deploy/fashion-store \
-              --include='*.yaml' \
-              --include='*.yml'
-          )
-
-          if [ "${#IMAGE_FILES[@]}" -eq 0 ]; then
-            echo "No Vastra image references found."
-            exit 1
-          fi
-
           sed -i -E \
-            "s#(^[[:space:]]*image:[[:space:]]+)[^[:space:]]*/vastra/fashion-store:[^[:space:]]+#\1${SHA_IMAGE}#g" \
-            "${IMAGE_FILES[@]}"
+            "s|^[[:space:]]*newTag:.*|    newTag: ${SHA_TAG}|" \
+            deploy/fashion-store/kustomization.yaml
 
-          if git diff --quiet -- deploy/fashion-store; then
-            echo "GitOps image reference is already current."
+          if git diff --quiet -- deploy/fashion-store/kustomization.yaml; then
+            echo "GitOps manifest already references ${SHA_TAG}"
             exit 0
           fi
 
@@ -161,23 +153,30 @@ jobs:
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add deploy/fashion-store
+          git add deploy/fashion-store/kustomization.yaml
 
           git commit \
-            --message "deploy image ${IMAGE_TAG} [skip ci]"
+            -m "Deploy ${SHA_TAG} [skip ci]"
 
-          git pull \
-            --rebase \
-            origin main
+          git push origin HEAD:main
 
-          git push \
-            origin HEAD:main
-
-      - name: Logout from Zot registry
-        if: always()
+      - name: Write workflow summary
         env:
-          ZOT_REGISTRY: ${{ vars.ZOT_REGISTRY }}
+          SOURCE_SHA: ${{ steps.image.outputs.source_sha }}
+          SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
+          LATEST_IMAGE: ${{ steps.image.outputs.latest_image }}
         run: |
-          if [ -n "$ZOT_REGISTRY" ]; then
-            podman logout "$ZOT_REGISTRY" || true
-          fi
+          {
+            echo "## VASTRA image published"
+            echo
+            echo "- Source commit: \`$SOURCE_SHA\`"
+            echo "- Immutable image: \`$SHA_IMAGE\`"
+            echo "- Moving image: \`$LATEST_IMAGE\`"
+            echo "- GitOps manifest updated automatically"
+            echo "- Runner: \`$RUNNER_NAME\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log out from Zot
+        if: always()
+        run: |
+          podman logout "$REGISTRY" || true
