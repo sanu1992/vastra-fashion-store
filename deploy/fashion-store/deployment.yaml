@@ -1,6 +1,5 @@
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
   name: fashion-store
   namespace: fashion-store
@@ -86,6 +85,33 @@ spec:
 
             - name: REDIS_DB
               value: "1"
+
+            - name: CELERY_REDIS_DB
+              value: "2"
+
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-rabbitmq
+                  key: RABBITMQ_DEFAULT_USER
+
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-rabbitmq
+                  key: RABBITMQ_DEFAULT_PASS
+
+            - name: RABBITMQ_HOST
+              value: "rabbitmq"
+
+            - name: RABBITMQ_PORT
+              value: "5672"
+
+            - name: RABBITMQ_VHOST
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-rabbitmq
+                  key: RABBITMQ_DEFAULT_VHOST
 
             - name: AI_API_KEY
               valueFrom:
