@@ -22,6 +22,12 @@ RUN POSTGRES_DB=build \
     REDIS_HOST=localhost \
     REDIS_PORT=6379 \
     REDIS_DB=1 \
+    CELERY_REDIS_DB=2 \
+    RABBITMQ_USER=build \
+    RABBITMQ_PASSWORD=build \
+    RABBITMQ_HOST=localhost \
+    RABBITMQ_PORT=5672 \
+    RABBITMQ_VHOST=build \
     python manage.py collectstatic --noinput
 
 EXPOSE 8000

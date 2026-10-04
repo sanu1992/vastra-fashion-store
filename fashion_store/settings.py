@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from urllib.parse import quote
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -222,3 +223,73 @@ SESSION_ENGINE = (
 )
 
 SESSION_CACHE_ALIAS = "default"
+
+
+RABBITMQ_USER = os.environ["RABBITMQ_USER"]
+RABBITMQ_PASSWORD = os.environ["RABBITMQ_PASSWORD"]
+RABBITMQ_HOST = os.environ.get(
+    "RABBITMQ_HOST",
+    "rabbitmq",
+)
+RABBITMQ_PORT = os.environ.get(
+    "RABBITMQ_PORT",
+    "5672",
+)
+RABBITMQ_VHOST = os.environ.get(
+    "RABBITMQ_VHOST",
+    "vastra",
+)
+
+rabbitmq_user_encoded = quote(
+    RABBITMQ_USER,
+    safe="",
+)
+rabbitmq_password_encoded = quote(
+    RABBITMQ_PASSWORD,
+    safe="",
+)
+rabbitmq_vhost_encoded = quote(
+    RABBITMQ_VHOST,
+    safe="",
+)
+
+CELERY_BROKER_URL = (
+    f"amqp://"
+    f"{rabbitmq_user_encoded}:"
+    f"{rabbitmq_password_encoded}@"
+    f"{RABBITMQ_HOST}:"
+    f"{RABBITMQ_PORT}/"
+    f"{rabbitmq_vhost_encoded}"
+)
+
+celery_redis_password = quote(
+    REDIS_PASSWORD,
+    safe="",
+)
+celery_redis_db = os.environ.get(
+    "CELERY_REDIS_DB",
+    "2",
+)
+
+CELERY_RESULT_BACKEND = (
+    f"redis://:"
+    f"{celery_redis_password}@"
+    f"{REDIS_HOST}:"
+    f"{REDIS_PORT}/"
+    f"{celery_redis_db}"
+)
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+
+CELERY_TIMEZONE = "Asia/Kolkata"
+CELERY_ENABLE_UTC = True
+
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_RESULT_EXPIRES = 3600
+
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
