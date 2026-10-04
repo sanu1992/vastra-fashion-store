@@ -172,3 +172,53 @@ SECURE_PROXY_SSL_HEADER = (
 LOGIN_URL = "/account/login/"
 LOGIN_REDIRECT_URL = "/account/"
 LOGOUT_REDIRECT_URL = "/"
+
+
+# Redis cache configuration
+
+REDIS_HOST = os.getenv(
+    "REDIS_HOST",
+    "redis",
+)
+
+REDIS_PORT = os.getenv(
+    "REDIS_PORT",
+    "6379",
+)
+
+REDIS_DB = os.getenv(
+    "REDIS_DB",
+    "1",
+)
+
+REDIS_PASSWORD = os.environ["REDIS_PASSWORD"]
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": (
+            f"redis://{REDIS_HOST}:"
+            f"{REDIS_PORT}/{REDIS_DB}"
+        ),
+        "OPTIONS": {
+            "CLIENT_CLASS": (
+                "django_redis.client.DefaultClient"
+            ),
+            "PASSWORD": REDIS_PASSWORD,
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+            "RETRY_ON_TIMEOUT": True,
+        },
+        "KEY_PREFIX": "vastra",
+        "TIMEOUT": 300,
+    },
+}
+
+# Store sessions in both Redis and PostgreSQL.
+# PostgreSQL provides recovery if Redis is restarted.
+
+SESSION_ENGINE = (
+    "django.contrib.sessions.backends.cached_db"
+)
+
+SESSION_CACHE_ALIAS = "default"

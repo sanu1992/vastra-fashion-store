@@ -72,6 +72,21 @@ spec:
             - name: POSTGRES_PORT
               value: "5432"
 
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-redis
+                  key: REDIS_PASSWORD
+
+            - name: REDIS_HOST
+              value: "redis"
+
+            - name: REDIS_PORT
+              value: "6379"
+
+            - name: REDIS_DB
+              value: "1"
+
             - name: AI_API_KEY
               valueFrom:
                 secretKeyRef:
