@@ -5,8 +5,11 @@ metadata:
   namespace: fashion-store
 data:
   90-vastra.conf: |
-    vm_memory_high_watermark.absolute = 320MiB
-    disk_free_limit.absolute = 200MB
+    listeners.tcp.default = 5672
+    management.tcp.port = 15672
+    prometheus.tcp.port = 15692
+    vm_memory_high_watermark.relative = 0.40
+    disk_free_limit.absolute = 512MB
 
 ---
 apiVersion: v1
@@ -17,8 +20,10 @@ metadata:
 spec:
   clusterIP: None
   publishNotReadyAddresses: true
+
   selector:
     app: rabbitmq
+
   ports:
     - name: amqp
       port: 5672
@@ -32,8 +37,10 @@ metadata:
   namespace: fashion-store
 spec:
   type: ClusterIP
+
   selector:
     app: rabbitmq
+
   ports:
     - name: amqp
       port: 5672
@@ -42,6 +49,10 @@ spec:
     - name: management
       port: 15672
       targetPort: management
+
+    - name: prometheus
+      port: 15692
+      targetPort: prometheus
 
 ---
 apiVersion: apps/v1
@@ -66,58 +77,64 @@ spec:
         app: rabbitmq
 
     spec:
-      terminationGracePeriodSeconds: 60
+      terminationGracePeriodSeconds: 120
 
       containers:
         - name: rabbitmq
           image: rabbitmq:4.2.9-management
           imagePullPolicy: IfNotPresent
 
-          envFrom:
-            - secretRef:
-                name: fashion-store-rabbitmq
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-rabbitmq
+                  key: RABBITMQ_DEFAULT_USER
+
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-rabbitmq
+                  key: RABBITMQ_DEFAULT_PASS
+
+            - name: RABBITMQ_DEFAULT_VHOST
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-rabbitmq
+                  key: RABBITMQ_DEFAULT_VHOST
 
           ports:
             - name: amqp
               containerPort: 5672
+              protocol: TCP
 
             - name: management
               containerPort: 15672
+              protocol: TCP
+
+            - name: prometheus
+              containerPort: 15692
+              protocol: TCP
 
           startupProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - rabbitmq-diagnostics -q ping
-            periodSeconds: 5
-            timeoutSeconds: 5
-            failureThreshold: 60
-
-          readinessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - rabbitmq-diagnostics -q check_running
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 6
-
             tcpSocket:
               port: amqp
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 120
 
+          readinessProbe:
+            tcpSocket:
+              port: amqp
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+
           livenessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - rabbitmq-diagnostics -q ping
-            periodSeconds: 20
-            timeoutSeconds: 5
+            tcpSocket:
+              port: amqp
+            periodSeconds: 30
+            timeoutSeconds: 3
             failureThreshold: 6
 
           resources:
@@ -148,7 +165,9 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
+
         storageClassName: local-path
+
         resources:
           requests:
-            storage: 2Gi
+            storage: 5Gi
