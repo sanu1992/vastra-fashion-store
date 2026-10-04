@@ -12,4 +12,4 @@ resources:
 
 images:
   - name: registry.local:5000/vastra/fashion-store
-    newTag: sha-45275ee6dabc
+    newTag: sha-2e44a2215446
