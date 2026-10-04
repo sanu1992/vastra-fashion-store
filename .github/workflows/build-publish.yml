@@ -95,7 +95,7 @@ jobs:
             -q \
             .
 
-      - name: Run Django system checks
+      - name: Validate Django application
         env:
           SHA_IMAGE: ${{ steps.image.outputs.sha_image }}
         run: |
@@ -106,6 +106,10 @@ jobs:
             --env POSTGRES_PASSWORD=ci_check \
             --env POSTGRES_HOST=127.0.0.1 \
             --env POSTGRES_PORT=5432 \
+            --env REDIS_PASSWORD=ci_check \
+            --env REDIS_HOST=127.0.0.1 \
+            --env REDIS_PORT=6379 \
+            --env REDIS_DB=1 \
             "$SHA_IMAGE" \
             manage.py check
 
