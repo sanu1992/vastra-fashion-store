@@ -18,6 +18,10 @@ RUN POSTGRES_DB=build \
     POSTGRES_PASSWORD=build \
     POSTGRES_HOST=localhost \
     POSTGRES_PORT=5432 \
+    REDIS_PASSWORD=build \
+    REDIS_HOST=localhost \
+    REDIS_PORT=6379 \
+    REDIS_DB=1 \
     python manage.py collectstatic --noinput
 
 EXPOSE 8000
