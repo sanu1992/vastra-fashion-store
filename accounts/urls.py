@@ -20,9 +20,7 @@ urlpatterns = [
     ),
     path(
         "login/",
-        auth_views.LoginView.as_view(
-            template_name="accounts/login.html",
-        ),
+        views.RateLimitedLoginView.as_view(),
         name="login",
     ),
     path(
