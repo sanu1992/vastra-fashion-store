@@ -8,6 +8,7 @@ resources:
   - service.yaml
   - ingress.yaml
   - redis.yaml
+  - rabbitmq.yaml
 
 images:
   - name: registry.local:5000/vastra/fashion-store

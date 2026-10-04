@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: fashion-store
+data:
+  90-vastra.conf: |
+    vm_memory_high_watermark.absolute = 320MiB
+    disk_free_limit.absolute = 200MB
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-headless
+  namespace: fashion-store
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: fashion-store
+spec:
+  type: ClusterIP
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+
+    - name: management
+      port: 15672
+      targetPort: management
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: fashion-store
+spec:
+  serviceName: rabbitmq-headless
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: rabbitmq
+
+  updateStrategy:
+    type: RollingUpdate
+
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+
+    spec:
+      terminationGracePeriodSeconds: 60
+
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:4.2.9-management
+          imagePullPolicy: IfNotPresent
+
+          envFrom:
+            - secretRef:
+                name: fashion-store-rabbitmq
+
+          ports:
+            - name: amqp
+              containerPort: 5672
+
+            - name: management
+              containerPort: 15672
+
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - rabbitmq-diagnostics -q ping
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 60
+
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - rabbitmq-diagnostics -q check_running
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - rabbitmq-diagnostics -q ping
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 512Mi
+
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+
+            - name: rabbitmq-config
+              mountPath: /etc/rabbitmq/conf.d/90-vastra.conf
+              subPath: 90-vastra.conf
+              readOnly: true
+
+      volumes:
+        - name: rabbitmq-config
+          configMap:
+            name: rabbitmq-config
+
+  volumeClaimTemplates:
+    - metadata:
+        name: rabbitmq-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 2Gi
