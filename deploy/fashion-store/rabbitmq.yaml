@@ -167,7 +167,8 @@ spec:
           - ReadWriteOnce
 
         storageClassName: local-path
+        volumeMode: Filesystem
 
         resources:
           requests:
-            storage: 5Gi
+            storage: 2Gi
