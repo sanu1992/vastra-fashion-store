@@ -6,8 +6,20 @@
 <section class="auth-shell">
     <div class="auth-card">
         <p class="auth-kicker">WELCOME BACK</p>
+
         <h1>Sign in</h1>
-        <p>Access your profile and continue shopping.</p>
+
+        <p>
+            Access your profile and continue shopping.
+        </p>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="form-message">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
 
         <form method="post" class="auth-form">
             {% csrf_token %}
@@ -35,7 +47,11 @@
             {% endfor %}
 
             {% if next %}
-                <input type="hidden" name="next" value="{{ next }}">
+                <input
+                    type="hidden"
+                    name="next"
+                    value="{{ next }}"
+                >
             {% endif %}
 
             <button type="submit" class="auth-button">
@@ -45,6 +61,7 @@
 
         <p class="auth-switch">
             New to VASTRA?
+
             <a href="{% url 'accounts:register' %}">
                 Create an account
             </a>

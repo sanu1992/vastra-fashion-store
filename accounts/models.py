@@ -15,6 +15,13 @@ class CustomerProfile(models.Model):
         related_name="customer_profile",
     )
 
+    supabase_user_id = models.UUIDField(
+        unique=True,
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
     phone = models.CharField(
         max_length=20,
         blank=True,
@@ -50,4 +57,4 @@ class CustomerProfile(models.Model):
     )
 
     def __str__(self):
-        return self.user.username
+        return self.user.email or self.user.username

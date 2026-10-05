@@ -1,5 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: fashion-store
   namespace: fashion-store
@@ -46,6 +47,18 @@ spec:
 
             - name: DJANGO_ALLOWED_HOSTS
               value: "localhost,127.0.0.1,192.168.1.25,192.168.1.240,fashion.local,vastra-cp-01.tail4ca3d9.ts.net"
+
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-supabase
+                  key: SUPABASE_URL
+
+            - name: SUPABASE_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: fashion-store-supabase
+                  key: SUPABASE_PUBLISHABLE_KEY
 
             - name: POSTGRES_PASSWORD
               valueFrom:

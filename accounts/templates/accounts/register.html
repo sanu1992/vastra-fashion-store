@@ -6,8 +6,13 @@
 <section class="auth-shell">
     <div class="auth-card auth-card-wide">
         <p class="auth-kicker">JOIN VASTRA</p>
+
         <h1>Create your account</h1>
-        <p>Register to maintain your customer profile.</p>
+
+        <p>
+            Your password is securely managed by
+            our external authentication service.
+        </p>
 
         <form method="post" class="auth-form">
             {% csrf_token %}
@@ -45,6 +50,7 @@
 
         <p class="auth-switch">
             Already registered?
+
             <a href="{% url 'accounts:login' %}">
                 Sign in
             </a>
