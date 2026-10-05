@@ -42,7 +42,7 @@ spec:
                   key: UNSPLASH_ACCESS_KEY
 
             - name: DJANGO_CSRF_TRUSTED_ORIGINS
-              value: "https://fashion.local"
+              value: "https://fashion.local,https://vastra-cp-01.tail4ca3d9.ts.net"
 
             - name: DJANGO_ALLOWED_HOSTS
               value: "localhost,127.0.0.1,192.168.1.25,192.168.1.240,fashion.local"
