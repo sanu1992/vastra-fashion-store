@@ -1,0 +1,165 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: postgres-headless
+  namespace: fashion-store
+  labels:
+    app: postgres
+
+spec:
+  clusterIP: None
+  type: ClusterIP
+  internalTrafficPolicy: Cluster
+  ipFamilyPolicy: SingleStack
+  sessionAffinity: None
+
+  selector:
+    app: postgres
+
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: postgres
+  namespace: fashion-store
+  labels:
+    app: postgres
+
+spec:
+  type: ClusterIP
+  internalTrafficPolicy: Cluster
+  ipFamilyPolicy: SingleStack
+  sessionAffinity: None
+
+  selector:
+    app: postgres
+
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+
+metadata:
+  name: postgres
+  namespace: fashion-store
+  labels:
+    app: postgres
+
+spec:
+  serviceName: postgres-headless
+  replicas: 1
+  revisionHistoryLimit: 10
+  podManagementPolicy: OrderedReady
+
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+
+  selector:
+    matchLabels:
+      app: postgres
+
+  template:
+    metadata:
+      labels:
+        app: postgres
+
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+
+      containers:
+        - name: postgres
+          image: postgres:17.11-bookworm
+          imagePullPolicy: IfNotPresent
+
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+          envFrom:
+            - secretRef:
+                name: fashion-store-db
+
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+
+          startupProbe:
+            tcpSocket:
+              port: 5432
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 120
+            successThreshold: 1
+
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+            successThreshold: 1
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: postgres-data
+
+      spec:
+        accessModes:
+          - ReadWriteOnce
+
+        storageClassName: nfs-static
+        volumeMode: Filesystem
+
+        resources:
+          requests:
+            storage: 20Gi

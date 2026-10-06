@@ -10,6 +10,7 @@ resources:
   - redis.yaml
   - rabbitmq.yaml
   - celery-worker.yaml
+  - postgres.yaml
 
 images:
   - name: registry.local:5000/vastra/fashion-store
